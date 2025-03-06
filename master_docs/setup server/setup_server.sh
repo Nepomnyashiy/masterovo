@@ -58,11 +58,11 @@ mkdir -p $PROJECT_DIR/database/{migrations,seeders}
 mkdir -p $PROJECT_DIR/security/{secrets,nginx}
 echo "✅ Каталоги созданы!"
 
-# === 8. Установка PostgreSQL, Redis, Prometheus, Grafana ===
-echo "📦 Установка PostgreSQL, Redis, Prometheus, Grafana..."
-sudo apt install -y postgresql redis-server prometheus grafana
-sudo systemctl enable --now postgresql redis-server prometheus grafana
-echo "✅ БД и мониторинг установлены."
+# === 8. Установка Prometheus, Grafana ===
+echo "📦 Установка Prometheus, Grafana..."
+sudo apt install -y prometheus grafana
+sudo systemctl enable --now prometheus grafana
+echo "✅ Мониторинг установлен."
 
 # === 9. Настройка fail2ban ===
 echo "🔒 Настройка fail2ban..."
@@ -75,23 +75,22 @@ echo "maxretry = 3" | sudo tee -a /etc/fail2ban/jail.local
 sudo systemctl restart fail2ban
 echo "✅ Защита от брутфорса включена!"
 
-# === 10. Настройка резервного копирования БД и логов ===
+# === 10. Настройка резервного копирования логов ===
 echo "🛠 Настройка резервного копирования..."
 BACKUP_DIR="$PROJECT_DIR/backup"
 mkdir -p $BACKUP_DIR
 
-# Скрипт для резервного копирования PostgreSQL и логов
+# Скрипт для резервного копирования логов
 BACKUP_SCRIPT="$BACKUP_DIR/backup.sh"
 echo "#!/bin/bash" > $BACKUP_SCRIPT
 echo "TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')" >> $BACKUP_SCRIPT
-echo "pg_dumpall -U postgres > $BACKUP_DIR/postgres_backup_\$TIMESTAMP.sql" >> $BACKUP_SCRIPT
 echo "tar -czf $BACKUP_DIR/logs_backup_\$TIMESTAMP.tar.gz $PROJECT_DIR/logs" >> $BACKUP_SCRIPT
 echo "echo '✅ Бэкап завершен: \$TIMESTAMP'" >> $BACKUP_SCRIPT
 chmod +x $BACKUP_SCRIPT
 
 # Добавление в cron для ежедневного выполнения
 (crontab -l 2>/dev/null; echo "0 2 * * * $BACKUP_SCRIPT") | crontab -
-echo "✅ Настроено ежедневное резервное копирование БД и логов!"
+echo "✅ Настроено ежедневное резервное копирование логов!"
 
 # === 11. Настройка Swap (если RAM < 8GB) ===
 RAM=$(free -m | awk '/^Mem:/{print $2}')
