@@ -10,7 +10,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./storage/postgres:/var/lib/postgresql/data
+      - ../../storage/postgres:/var/lib/postgresql/data
     networks:
       - database_network
 
@@ -23,7 +23,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./storage/mongo:/data/db
+      - ../../storage/mongo:/data/db
     networks:
       - database_network
 
@@ -35,7 +35,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./storage/redis:/data
+      - ../../storage/redis:/data
     networks:
       - backend_network
 
@@ -49,13 +49,13 @@ services:
       - "5001:5001"
       - "8080:8080"
     volumes:
-      - ./storage/ipfs:/data/ipfs
+      - ../../storage/ipfs:/data/ipfs
     networks:
       - backend_network
 
   # Backend (NestJS)
   backend:
-    build: ./backend
+    build: ../../backend
     container_name: nestjs_backend
     restart: unless-stopped
     depends_on:
@@ -72,7 +72,7 @@ services:
 
   # Frontend (Next.js)
   frontend:
-    build: ./frontend
+    build: ../../frontend
     container_name: nextjs_frontend
     restart: unless-stopped
     depends_on:
@@ -92,8 +92,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./security/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./security/nginx/certs:/etc/letsencrypt
+      - ../../security/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ../../security/nginx/certs:/etc/letsencrypt
     networks:
       - frontend_network
     depends_on:
@@ -108,7 +108,7 @@ services:
       - "8123:8123"
       - "9000:9000"
     volumes:
-      - ./storage/clickhouse:/var/lib/clickhouse
+      - ../../storage/clickhouse:/var/lib/clickhouse
     networks:
       - monitoring_network
 
@@ -118,7 +118,7 @@ services:
     container_name: prometheus
     restart: unless-stopped
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
     networks:
@@ -134,7 +134,7 @@ services:
     networks:
       - monitoring_network
     volumes:
-      - ./monitoring/grafana:/var/lib/grafana
+      - ../../monitoring/grafana:/var/lib/grafana
 
   # Loki - система логирования
   loki:
@@ -144,7 +144,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./monitoring/loki:/data/loki
+      - ../../monitoring/loki:/data/loki
     networks:
       - monitoring_network
 
@@ -154,7 +154,7 @@ services:
     container_name: promtail
     restart: unless-stopped
     volumes:
-      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
+      - ../../monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
       - /var/log:/var/log
     networks:
       - monitoring_network
