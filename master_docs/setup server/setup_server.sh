@@ -43,28 +43,13 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 sudo systemctl enable --now docker
 echo "✅ Docker и Docker Compose установлены."
 
-# === 7. Создание структуры каталогов ===
-echo "📁 Создание каталогов проекта..."
-PROJECT_DIR="/home/$NEW_USER/masterovo"
-mkdir -p $PROJECT_DIR/{backend,frontend,blockchain,storage,logs,devops,monitoring,database,security,backup}
-mkdir -p $PROJECT_DIR/backend/{src,config,test}
-mkdir -p $PROJECT_DIR/frontend/{src,public,components,pages,store}
-mkdir -p $PROJECT_DIR/blockchain/{solana,polygon,deploy}
-mkdir -p $PROJECT_DIR/storage/{postgres,mongo,redis,ipfs}
-mkdir -p $PROJECT_DIR/logs/{nginx,backend,frontend}
-mkdir -p $PROJECT_DIR/devops/{docker,kubernetes,ansible,ci-cd}
-mkdir -p $PROJECT_DIR/monitoring/{prometheus,grafana,loki,promtail}
-mkdir -p $PROJECT_DIR/database/{migrations,seeders}
-mkdir -p $PROJECT_DIR/security/{secrets,nginx}
-echo "✅ Каталоги созданы!"
-
-# === 8. Установка Prometheus, Grafana ===
+# === 7. Установка Prometheus, Grafana ===
 echo "📦 Установка Prometheus, Grafana..."
 sudo apt install -y prometheus grafana
 sudo systemctl enable --now prometheus grafana
 echo "✅ Мониторинг установлен."
 
-# === 9. Настройка fail2ban ===
+# === 8. Настройка fail2ban ===
 echo "🔒 Настройка fail2ban..."
 sudo systemctl enable --now fail2ban
 echo "[sshd]" | sudo tee /etc/fail2ban/jail.local
@@ -75,16 +60,16 @@ echo "maxretry = 3" | sudo tee -a /etc/fail2ban/jail.local
 sudo systemctl restart fail2ban
 echo "✅ Защита от брутфорса включена!"
 
-# === 10. Настройка резервного копирования логов ===
+# === 9. Настройка резервного копирования логов ===
 echo "🛠 Настройка резервного копирования..."
-BACKUP_DIR="$PROJECT_DIR/backup"
+BACKUP_DIR="/home/$NEW_USER/backup"
 mkdir -p $BACKUP_DIR
 
 # Скрипт для резервного копирования логов
 BACKUP_SCRIPT="$BACKUP_DIR/backup.sh"
 echo "#!/bin/bash" > $BACKUP_SCRIPT
 echo "TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')" >> $BACKUP_SCRIPT
-echo "tar -czf $BACKUP_DIR/logs_backup_\$TIMESTAMP.tar.gz $PROJECT_DIR/logs" >> $BACKUP_SCRIPT
+echo "tar -czf $BACKUP_DIR/logs_backup_\$TIMESTAMP.tar.gz /var/log" >> $BACKUP_SCRIPT
 echo "echo '✅ Бэкап завершен: \$TIMESTAMP'" >> $BACKUP_SCRIPT
 chmod +x $BACKUP_SCRIPT
 
@@ -92,7 +77,7 @@ chmod +x $BACKUP_SCRIPT
 (crontab -l 2>/dev/null; echo "0 2 * * * $BACKUP_SCRIPT") | crontab -
 echo "✅ Настроено ежедневное резервное копирование логов!"
 
-# === 11. Настройка Swap (если RAM < 8GB) ===
+# === 10. Настройка Swap (если RAM < 8GB) ===
 RAM=$(free -m | awk '/^Mem:/{print $2}')
 if [ "$RAM" -lt 8000 ]; then
     echo "🛠 Настройка Swap (RAM < 8GB)..."
@@ -104,7 +89,7 @@ if [ "$RAM" -lt 8000 ]; then
     echo "✅ Swap (4GB) настроен!"
 fi
 
-# === 12. Очистка системы ===
+# === 11. Очистка системы ===
 echo "🧹 Очистка ненужных пакетов..."
 sudo apt autoremove -y && sudo apt autoclean -y
 echo "✅ Сервер подготовлен к работе!"

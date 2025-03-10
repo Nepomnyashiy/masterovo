@@ -1,84 +1,114 @@
 version: "3.8"
 
-secrets:
-  postgres_password:
-    file: ./secrets/postgres_password
-  mongo_password:
-    file: ./secrets/mongo_password
-
 services:
-  # PostgreSQL - основная БД для пользователей, магазинов, заказов
+  # PostgreSQL - основная база данных
   postgres:
     image: postgres:16
     container_name: postgres_db
-    restart: always
-    environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-    secrets:
-      - postgres_password
+    restart: unless-stopped
+    env_file: .env
     ports:
       - "5432:5432"
     volumes:
-      - ./volumes/postgres:/var/lib/postgresql/data
-      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./storage/postgres:/var/lib/postgresql/data
     networks:
       - database_network
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
-      interval: 10s
-      retries: 5
-      start_period: 10s
 
-  # MongoDB - для лайков, комментариев, real-time взаимодействий
+  # MongoDB - для хранения real-time данных
   mongo:
     image: mongo:6
     container_name: mongo_db
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_password
-    secrets:
-      - mongo_password
+    restart: unless-stopped
+    env_file: .env
     ports:
       - "27017:27017"
     volumes:
-      - ./volumes/mongo:/data/db
+      - ./storage/mongo:/data/db
     networks:
       - database_network
-    healthcheck:
-      test: ["CMD", "mongo", "--eval", "db.runCommand({ping:1})"]
-      interval: 10s
-      retries: 5
-      start_period: 10s
 
-  # Alertmanager - система алертов для мониторинга
-  alertmanager:
-    image: prom/alertmanager
-    container_name: alertmanager
-    restart: always
+  # Redis - кэш и поддержка WebSockets
+  redis:
+    image: redis:7
+    container_name: redis_cache
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
     volumes:
-      - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml
-    ports:
-      - "9093:9093"
+      - ./storage/redis:/data
     networks:
-      - monitoring_network
+      - backend_network
 
-  # Node Exporter - мониторинг ресурсов сервера
-  node-exporter:
-    image: prom/node-exporter
-    container_name: node_exporter
-    restart: always
+  # IPFS - хранение NFT-изображений
+  ipfs:
+    image: ipfs/go-ipfs
+    container_name: ipfs_node
+    restart: unless-stopped
     ports:
-      - "9100:9100"
+      - "4001:4001"
+      - "5001:5001"
+      - "8080:8080"
+    volumes:
+      - ./storage/ipfs:/data/ipfs
     networks:
-      - monitoring_network
+      - backend_network
 
-  # Blackbox Exporter - мониторинг доступности сервисов
-  blackbox-exporter:
-    image: prom/blackbox-exporter
-    container_name: blackbox_exporter
-    restart: always
+  # Backend (NestJS)
+  backend:
+    build: ./backend
+    container_name: nestjs_backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - mongo
+      - redis
+      - ipfs
+    env_file: .env
     ports:
-      - "9115:9115"
+      - "4000:4000"
+    networks:
+      - backend_network
+      - database_network
+
+  # Frontend (Next.js)
+  frontend:
+    build: ./frontend
+    container_name: nextjs_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    networks:
+      - frontend_network
+      - backend_network
+
+  # Nginx - обратный прокси
+  nginx:
+    image: nginx:latest
+    container_name: nginx_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./security/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./security/nginx/certs:/etc/letsencrypt
+    networks:
+      - frontend_network
+    depends_on:
+      - frontend
+
+  # ClickHouse - хранилище для метрик
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    container_name: clickhouse_db
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./storage/clickhouse:/var/lib/clickhouse
     networks:
       - monitoring_network
 
@@ -86,9 +116,9 @@ services:
   prometheus:
     image: prom/prometheus
     container_name: prometheus
-    restart: always
+    restart: unless-stopped
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
     networks:
@@ -98,23 +128,23 @@ services:
   grafana:
     image: grafana/grafana
     container_name: grafana
-    restart: always
+    restart: unless-stopped
     ports:
       - "3001:3000"
     networks:
       - monitoring_network
     volumes:
-      - ./volumes/grafana:/var/lib/grafana
+      - ./monitoring/grafana:/var/lib/grafana
 
   # Loki - система логирования
   loki:
     image: grafana/loki:latest
     container_name: loki
-    restart: always
+    restart: unless-stopped
     ports:
       - "3100:3100"
     volumes:
-      - ./volumes/loki:/data/loki
+      - ./monitoring/loki:/data/loki
     networks:
       - monitoring_network
 
@@ -122,9 +152,9 @@ services:
   promtail:
     image: grafana/promtail:latest
     container_name: promtail
-    restart: always
+    restart: unless-stopped
     volumes:
-      - ./config/promtail-config.yml:/etc/promtail/config.yml
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
       - /var/log:/var/log
     networks:
       - monitoring_network
